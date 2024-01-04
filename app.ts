@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import { Request, Response, NextFunction } from 'express';
 import { replicateResend } from './controllers/replicateController';
 import authMiddleware from './middleware/authMiddleware';
 
@@ -15,7 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ credentials: true, origin: PLATFORM_URL }));
 
-app.use('/api/replicate', replicateResend);
+app.use('/api/replicate', authMiddleware, replicateResend);
 
 app.use(notFound);
 app.use(errorHandler);

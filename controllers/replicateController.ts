@@ -2,7 +2,7 @@ import Replicate from "replicate";
 import { Request, Response, NextFunction } from 'express';
 import HttpError from "../models/errorModel";
 import { Resend } from "resend";
-import prismadb from "../lib/prismadb";
+import { PrismaClient } from "@prisma/client";
 import * as dotenv from 'dotenv';
 dotenv.config();
 
@@ -11,6 +11,13 @@ let replicate = new Replicate({
 });
 
 let userID = "";
+let sendingEmail = "";
+let generation = "";
+let upload = "";
+let prompt = "";
+let prompturi = "";
+
+const prismadb = new PrismaClient()
 
 export const replicateResend = async (
     req: Request,
@@ -22,7 +29,7 @@ export const replicateResend = async (
 
         if(!replicate){
             replicate = new Replicate({
-              auth: 'r8_L11WlZKygboMmGR2g0luxznTyx62fie2jAmlT'
+              auth: process.env.REPLICATE_API_TOKEN_2
           });
         }
 
@@ -33,43 +40,57 @@ export const replicateResend = async (
         if (!imageUrl && !template && !email) {
             return next(new HttpError("ImageUrl, template and userEmail are unavailable.", 500));
         }
+
+        upload = imageUrl;
+        prompt = template.prompt;
+        prompturi = template.uri;
+        sendingEmail = email;
+
         userID = userId
         console.log("imageurl:", imageUrl);
         console.log("template:", template);
         console.log("email:", email);
 
         res.status(200);
+
+        const output = "testing"
         
-        const output = await replicate.run(
-          "catio-apps/photoaistudio-generate:1ed8b5810e1e4291699e6a43ef9c641196d660eae7cba314d83519a898a409da",
-          {
-                input: {
-                  seed: 1,
-                  steps: 8,
-                  width: 1080,
-                  prompt: template.prompt,
-                  n_prompt: "ugly, bad hair, baggy, blurry",
-                  face_image: imageUrl,
-                  pose_image: template.uri,
-                  num_samples: 1,
-                  face_resemblance: 0.5,
-                  pose_resemblance: 0.8,
-                  face_expanding_bbox: 0.5
-                }
-              }
-          );
+        // const output = await replicate.run(
+        //   "catio-apps/photoaistudio-generate:1ed8b5810e1e4291699e6a43ef9c641196d660eae7cba314d83519a898a409da",
+        //   {
+        //         input: {
+        //           seed: 1,
+        //           steps: 8,
+        //           width: 1080,
+        //           prompt: template.prompt,
+        //           n_prompt: "ugly, bad hair, baggy, blurry",
+        //           face_image: imageUrl,
+        //           pose_image: template.uri,
+        //           num_samples: 1,
+        //           face_resemblance: 0.5,
+        //           pose_resemblance: 0.8,
+        //           face_expanding_bbox: 0.5
+        //         }
+        //       }
+        //   );
 
-          if(!output){
-            return res.status(400);
-          }
+        //   if(!output){
+        //     return res.status(400);
+        //   }
 
-          //add functionality to show generations that aborted through generation table
+        //add functionality to show generations that aborted through generation table
 
+        if(output){
+          generation = output;
+        }
           await prismadb.generations.create({
             data: {
                 userId,
                 email,
-                imageurl: `${output}` 
+                output: `${output}`,
+                prompt: template.prompt,
+                prompturi: template.uri,
+                upload: imageUrl
             }
           }); 
 
@@ -86,25 +107,24 @@ export const replicateResend = async (
 
         console.log("This is the resend data",data);
 
-        const userApiLimit = await prismadb.userApiLimit.findUnique({
-            where: {
-                userId
-            }
-        });
-        if (userApiLimit) {
-            await prismadb.userApiLimit.update({
-                where: { userId },
-                data: { count: userApiLimit.count + 1 },
-            });
-        } else {
-            await prismadb.userApiLimit.create({
-                data: { userId: userId, userEmail: userEmail, count: 1}
-            });
-        }
-
-   return res.status(200).json("Email sent successfully");
+        return res.status(200).json("Email sent successfully");
 
   } catch (error) {
+    //can add logic to generations table to show when a generation failed
+    //and will need to retry.
+    if(!generation){
+      await prismadb.generations.create({
+        data: {
+            userId: userID,
+            email: sendingEmail,
+            output: generation,
+            prompt,
+            prompturi,
+            upload
+        }
+      }); 
+    }
+
     const userApiLimit = await prismadb.userApiLimit.findUnique({
       where: {
           userId: userID

@@ -39,7 +39,10 @@ model Generations {
   id        String   @id @default(cuid())
   userId    String   @unique
   email     String?  @map("email")
-  imageurl  String   @unique
+  output    String?
+  prompt    String?
+  prompturi String?
+  upload    String
   createdAt DateTime @default(now())
   updateAt  DateTime @updatedAt
 }
