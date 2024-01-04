@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model UserApiLimit {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  userEmail String   @unique
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+}
+
+model UserSubscription {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  stripeCustomerId       String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId   String?   @unique @map("stripe_subscription_id")
+  stripePriceId          String?   @map("stripe_price_id")
+  stripeCurrentPeriodEnd DateTime? @map("stripe_current_period_end")
+}
+
+model paystackSubscription {
+  id                       String    @id @default(cuid())
+  paystackCustomerId       String?   @unique @map("customer_code")
+  paystackAmountPaid       String?   @map("amount")
+  paystackCurrentPeriodEnd DateTime? @map("next_payment_date")
+  paystackPlanCode         String?   @map("plan_code")
+  userEmail                String    @unique
+}
+
+model Generations {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  email     String?  @map("email")
+  imageurl  String   @unique
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+}
